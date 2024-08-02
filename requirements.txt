@@ -1,0 +1,13 @@
+openai
+tiktoken
+python-dotenv
+rich
+discord.py
+pandas
+scipy
+pyaudio
+speechrecognition
+pyttsx3
+keyboard
+playsound
+pytz
