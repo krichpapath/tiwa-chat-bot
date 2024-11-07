@@ -20,7 +20,7 @@ client = commands.Bot(command_prefix=["ทิวา! ", "Tiwa! ", "tiwa! "], int
 tiwaChatGPT = TiwaChatGPT()
 
 # Channel ID for sending audio messages
-CHANNEL_ID = 966432292211920967
+CHANNEL_ID = 966432292211920967  # 966432292211920967
 
 
 @client.event

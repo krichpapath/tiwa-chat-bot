@@ -1,4 +1,4 @@
-import os, ast, json, pytz
+import os, ast, json, pytz, base64
 from openai import OpenAI
 import tiktoken
 from dotenv import load_dotenv
@@ -12,6 +12,8 @@ load_dotenv()
 
 class TiwaChatGPT:
     def __init__(self):
+        # api_key=os.getenv("OPENAI_TOKEN")
+        print(os.getenv("OPENAI_TOKEN"))
         self.openai = OpenAI(api_key=os.getenv("OPENAI_TOKEN"))
         self.chat_log = []
         self.paths = {
@@ -19,12 +21,12 @@ class TiwaChatGPT:
             "chat_backup": "Tiwa_memory/TiwaChatLogBackUp.txt",
             "embedding_log": "Tiwa_memory/embedded_memory.csv",
         }
-        self.model, self.token_max = "gpt-4o", 3000
+        self.model, self.token_max = "gpt-4o", 4000
         self.tiwaEmbedding = Tiwa_GPTEmbedding()
         self.tiwaCalendar = Tiwa_GoogleCalendarAPI()
         self.load_chat_history()
         self.initialize_chat_log()
-        self.memory_limit = 20
+        self.memory_limit = 24
 
     def load_chat_history(self):
         if (
@@ -37,7 +39,7 @@ class TiwaChatGPT:
     def load_first_message(self) -> str:
         try:
             with open(
-                "Tiwa_prompt/Tiwa daughter prompt.txt", "r", encoding="utf-8"
+                "Tiwa_prompt\Tiwa OpenHouse prompt.txt", "r", encoding="utf-8"
             ) as file:
                 return file.read()
         except (FileNotFoundError, IOError) as e:
@@ -91,6 +93,7 @@ class TiwaChatGPT:
             "content": response.choices[0].message.content,
         }
         self.chat_history_append(response_message)
+        print(self.chat_log)
         return response.choices[0].message.content
 
     def chat_with_gpt_no_history(self, prompt):
@@ -160,6 +163,52 @@ class TiwaChatGPT:
                 "content": f"User give you a picture and you respond with {response.choices[0].message.content}",
             }
         )
+        print(str(response.choices[0].message.content))
+        return response.choices[0].message.content
+
+    def encode_image(self, image_path):
+        with open(image_path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode("utf-8")
+
+    def chat_with_gpt_picture_base64(self, prompt, image_path):
+        if not (prompt and image_path and self.model == "gpt-4o"):
+            print("Didn't receive input! or wrong version of gpt")
+            return
+
+        base64_image = self.encode_image(image_path)
+
+        messages_list = [
+            {"role": "system", "content": self.load_first_message()},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
+                    },
+                ],
+            },
+        ]
+
+        self.chat_history_append(
+            {
+                "role": "user",
+                "content": f"User gave you this picture and said '{prompt}'",
+            }
+        )
+
+        response = self.openai.chat.completions.create(
+            model=self.model, messages=messages_list
+        )
+
+        self.chat_history_append(
+            {
+                "role": "assistant",
+                "content": f"User gave you a picture and you responded with {response.choices[0].message.content}",
+            }
+        )
+
         print(str(response.choices[0].message.content))
         return response.choices[0].message.content
 
@@ -253,6 +302,7 @@ class TiwaChatGPT:
                             },
                         },
                         "required": ["summary", "start_time", "duration"],
+                        "additionalProperties": False,
                     },
                 },
             },
@@ -270,6 +320,7 @@ class TiwaChatGPT:
                             }
                         },
                         "required": ["event_id"],
+                        "additionalProperties": False,
                     },
                 },
             },
@@ -279,7 +330,6 @@ class TiwaChatGPT:
             model=self.model,
             messages=chat_history,
             tools=calendar_tools,
-            tool_choice="auto",
         )
 
         if response.choices[0].message.content:
@@ -454,8 +504,11 @@ class TiwaChatGPT:
                 self.forget()
                 break
             # response = self.chat_with_gpt_embedding_chat_log(user_input)
-            response = self.chat_with_gpt_with_tools(
-                user_input + f"\ncurrent time is {current_time}"
+            # response = self.chat_with_gpt_with_tools(
+            #     user_input + f"\ncurrent time is {current_time}"
+            # )
+            response = self.chat_with_gpt(
+                prompt=f"{user_input}\ncurrent time is {current_time}"
             )
             if response:
                 print(f"[green]Chatbot:\n{response}\n")
